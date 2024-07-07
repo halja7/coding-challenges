@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Args struct {
@@ -106,6 +108,11 @@ func formatOutput(fileinfo Fileinfo) {
 	fmt.Println(fileinfo.filename)
 }
 
+// It would be way better to do a single loop and
+// pull out all of this data each time regardless
+// of the flags supplied, printing only what the
+// user asked for. This was my starting point and
+// maybe I'll come back to it later.
 func countBytes(file []byte) (int, error) {
 	return len(file), nil
 }
@@ -114,20 +121,26 @@ func countWords(file []byte) (int, error) {
 	count := 0
 	inWord := false
 
-	for _, b := range file {
-		if b == ' ' || b == '\n' || b == '\t' || b == '\r' {
+	for len(file) > 0 {
+		r, size := utf8.DecodeRune(file)
+		if unicode.IsSpace(r) {
 			inWord = false
-		} else {
-			if !inWord {
+		} else if unicode.IsLetter(r) || unicode.IsNumber(r) || r == '-' || isCJK(r) {
+			if !inWord || isCJK(r) {
 				count++
 				inWord = true
 			}
-
+		} else {
+			inWord = false
 		}
-
+		file = file[size:]
 	}
 
 	return count, nil
+}
+
+func isCJK(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
 }
 
 func countLines(file []byte) (int, error) {
